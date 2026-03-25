@@ -16,10 +16,6 @@ import { Settings, ArrowLeft } from 'lucide-react';
 function App() {
   const [authenticated, setAuthenticated] = useState(!!getPassword());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  if (!authenticated) {
-    return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
-  }
   const [currentTool, setCurrentTool] = useState(null); // null | 'rename' | 'export'
   const [selectedProject, setSelectedProject] = useState(null); // Store full project info
 
@@ -46,6 +42,10 @@ function App() {
     startProject,
     resetProject
   } = useFileManager();
+
+  if (!authenticated) {
+    return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
+  }
 
   // Handle tool selection from DaluxManager
   const handleToolSelect = (toolId, projectNumber, projectId, projectName) => {
