@@ -18,7 +18,7 @@ export default function PasswordGate({ onAuthenticated }) {
     setError('');
 
     try {
-      const res = await fetch(`${API_URL}/health`, {
+      const res = await fetch(`${API_URL}/verify`, {
         headers: { 'X-App-Password': input },
       });
 
