@@ -168,55 +168,8 @@ const DownloadSection = ({ files, projektSifra, daluxApiKey, daluxConnected }) =
         </div>
       )}
 
-      {/* Mode Selection */}
+      {/* Dalux Upload */}
       {completeFiles.length > 0 && (
-        <>
-          <div className="mb-6">
-            <p className="text-sm font-medium text-slate-700 mb-3">Izberi način:</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setUploadMode('zip')}
-                className={`p-4 rounded-lg border-2 transition ${
-                  uploadMode === 'zip'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <Package className="w-6 h-6 mx-auto mb-2" />
-                <p className="font-medium">Prenesi ZIP</p>
-              </button>
-              <button
-                onClick={() => setUploadMode('dalux')}
-                className={`p-4 rounded-lg border-2 transition ${
-                  uploadMode === 'dalux'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <Cloud className="w-6 h-6 mx-auto mb-2" />
-                <p className="font-medium">Naloži v Dalux</p>
-              </button>
-            </div>
-          </div>
-
-          {/* ZIP Download */}
-          {uploadMode === 'zip' && (
-            <div>
-              <button
-                onClick={handleDownloadZip}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-4 px-6 rounded-lg transition flex items-center justify-center gap-3"
-              >
-                <Download className="w-5 h-5" />
-                PRENESI ZIP ARHIV S PREIMENOVANIMI DATOTEKAMI
-              </button>
-              <p className="text-sm text-slate-600 mt-3 text-center">
-                💡 ZIP vsebuje celotno mapno strukturo projekta z preimenovanimi datotekami
-              </p>
-            </div>
-          )}
-
-          {/* Dalux Upload */}
-          {uploadMode === 'dalux' && (
             <div>
               {!daluxConnected ? (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
@@ -290,8 +243,6 @@ const DownloadSection = ({ files, projektSifra, daluxApiKey, daluxConnected }) =
                 </>
               )}
             </div>
-          )}
-        </>
       )}
     </div>
   );
