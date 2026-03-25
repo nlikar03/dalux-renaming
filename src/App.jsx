@@ -9,10 +9,17 @@ import FileList from './components/FileList';
 import FileEditor from './components/FileEditor';
 import DownloadSection from './components/DownloadSection';
 import Sidebar from './components/Sidebar';
+import PasswordGate from './components/PasswordGate';
+import { getPassword } from './utils/auth';
 import { Settings, ArrowLeft } from 'lucide-react';
 
 function App() {
+  const [authenticated, setAuthenticated] = useState(!!getPassword());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  if (!authenticated) {
+    return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
+  }
   const [currentTool, setCurrentTool] = useState(null); // null | 'rename' | 'export'
   const [selectedProject, setSelectedProject] = useState(null); // Store full project info
 

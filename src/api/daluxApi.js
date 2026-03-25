@@ -1,5 +1,7 @@
 // Updated daluxApi.js with date filtering support
 
+import { getPassword, clearPassword } from '../utils/auth';
+
 const DEFAULT_API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default class DaluxApiClient {
@@ -7,16 +9,32 @@ export default class DaluxApiClient {
     this.baseUrl = baseUrl;
   }
 
+  /**
+   * Thin fetch wrapper that:
+   *  - injects X-App-Password on every request
+   *  - on 401: clears the stored password and reloads so PasswordGate shows again
+   */
+  async _fetch(url, options = {}) {
+    const headers = { "X-App-Password": getPassword(), ...(options.headers || {}) };
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+      clearPassword();
+      window.location.reload();
+      throw new Error("Unauthorized");
+    }
+    return res;
+  }
+
   // ========== PROJECT & FILE AREA METHODS ==========
 
   async getAllProjects() {
-    const res = await fetch(`${this.baseUrl}/projects`);
+    const res = await this._fetch(`${this.baseUrl}/projects`);
     if (!res.ok) throw new Error("Failed to fetch projects");
     return res.json();
   }
 
   async getFileAreas(projectNumber) {
-    const res = await fetch(`${this.baseUrl}/projects/${projectNumber}/file_areas`);
+    const res = await this._fetch(`${this.baseUrl}/projects/${projectNumber}/file_areas`);
     if (!res.ok) throw new Error("Failed to fetch file areas");
     return res.json();
   }
@@ -36,7 +54,7 @@ export default class DaluxApiClient {
     }
     formData.append("date_field", dateField);
 
-    const res = await fetch(`${this.baseUrl}/download/files/stream`, {
+    const res = await this._fetch(`${this.baseUrl}/download/files/stream`, {
       method: "POST",
       body: formData,
     });
@@ -87,7 +105,7 @@ export default class DaluxApiClient {
     }
 
     // Fetch the already-created ZIP via the GET endpoint (no re-processing)
-    const downloadRes = await fetch(`${this.baseUrl}${downloadUrl}`);
+    const downloadRes = await this._fetch(`${this.baseUrl}${downloadUrl}`);
     if (!downloadRes.ok) {
       throw new Error('Failed to fetch ZIP file');
     }
@@ -109,7 +127,7 @@ export default class DaluxApiClient {
     }
     formData.append("date_field", dateField);
 
-    const res = await fetch(`${this.baseUrl}/download/files`, {
+    const res = await this._fetch(`${this.baseUrl}/download/files`, {
       method: "POST",
       body: formData,
     });
@@ -134,7 +152,7 @@ export default class DaluxApiClient {
     formData.append("project_number", projectNumber);
     formData.append("include_attachments", includeAttachments.toString());
 
-    const res = await fetch(`${this.baseUrl}/download/forms`, {
+    const res = await this._fetch(`${this.baseUrl}/download/forms`, {
       method: "POST",
       body: formData,
     });
@@ -156,7 +174,7 @@ export default class DaluxApiClient {
     const formData = new FormData();
     formData.append("project_number", projectNumber);
 
-    const res = await fetch(`${this.baseUrl}/download/tasks`, {
+    const res = await this._fetch(`${this.baseUrl}/download/tasks`, {
       method: "POST",
       body: formData,
     });
@@ -201,7 +219,7 @@ export default class DaluxApiClient {
     }
     formData.append("date_field", dateField);
 
-    const res = await fetch(`${this.baseUrl}/download/all`, {
+    const res = await this._fetch(`${this.baseUrl}/download/all`, {
       method: "POST",
       body: formData,
     });
@@ -228,7 +246,7 @@ export default class DaluxApiClient {
     formData.append("folderPath", folderPath);
     formData.append("projectId", projectId);
 
-    const res = await fetch(`${this.baseUrl}/upload`, {
+    const res = await this._fetch(`${this.baseUrl}/upload`, {
       method: "POST",
       body: formData,
     });
@@ -261,7 +279,7 @@ export default class DaluxApiClient {
           slotForm.append("folderPath", folder);
           slotForm.append("fileName", filename);
 
-          const slotRes = await fetch(`${this.baseUrl}/upload_slot`, {
+          const slotRes = await this._fetch(`${this.baseUrl}/upload_slot`, {
             method: "POST",
             body: slotForm,
           });
@@ -275,14 +293,14 @@ export default class DaluxApiClient {
           uploadForm.append("fileAreaId", fileAreaId);
           uploadForm.append("file", blob, filename);
 
-          const uploadRes = await fetch(`${this.baseUrl}/upload_proxy/${slot.upload_guid}`, {
+          const uploadRes = await this._fetch(`${this.baseUrl}/upload_proxy/${slot.upload_guid}`, {
             method: "POST",
             body: uploadForm,
           });
           if (!uploadRes.ok) throw new Error(`Upload error: ${await uploadRes.text()}`);
 
           // Step 3: finalize (backend tells Dalux to commit the file)
-          const finalRes = await fetch(`${this.baseUrl}/finalize_upload`, {
+          const finalRes = await this._fetch(`${this.baseUrl}/finalize_upload`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
