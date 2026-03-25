@@ -299,16 +299,16 @@ export default class DaluxApiClient {
           });
           if (!uploadRes.ok) throw new Error(`Upload error: ${await uploadRes.text()}`);
 
-          // Step 3: finalize (backend tells Dalux to commit the file)
+          // Step 3: finalize (use project_id + folder_id from slot — no re-lookup)
           const finalRes = await this._fetch(`${this.baseUrl}/finalize_upload`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              projectNumber: projectId,
+              project_id:  slot.project_id,
               fileAreaId,
-              folderPath: folder,
+              folder_id:   slot.folder_id,
               upload_guid: slot.upload_guid,
-              fileName: filename,
+              fileName:    filename,
             }),
           });
           if (!finalRes.ok) throw new Error(`Finalize error: ${await finalRes.text()}`);
