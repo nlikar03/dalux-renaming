@@ -134,7 +134,7 @@ function App() {
                 className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm"
               >
                 <FileText className="w-4 h-4" />
-                Metapodatki
+                Uredi metapodatke
               </button>
 
               <button
