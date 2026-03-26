@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Folder, FolderOpen, ChevronRight, ChevronDown, Edit3, Save, Loader2, AlertCircle, CheckCircle2, FileText } from 'lucide-react';
+import { X, Folder, FolderOpen, ChevronRight, ChevronDown, Edit3, Save, Loader2, AlertCircle, CheckCircle2, FileText, Eye } from 'lucide-react';
 import DaluxApiClient from '../api/daluxApi';
 import FolderTreePicker from './FolderTreePicker';
+import { TIP_OPTIONS, FAZA_OPTIONS, VLO_OPTIONS } from '../utils/constants';
 
 // ── Inline folder tree (always visible, sidebar) ───────────────────────────────
 
@@ -59,21 +60,69 @@ function SidebarTree({ folders, selectedFolderId, onSelect }) {
   );
 }
 
+// ── Parse filename into metadata components ────────────────────────────────────
+
+function parseFilenameToMeta(fileName) {
+  const dotIdx = fileName.lastIndexOf('.');
+  const ext = dotIdx >= 0 ? fileName.slice(dotIdx) : '';
+  const base = dotIdx >= 0 ? fileName.slice(0, dotIdx) : fileName;
+  const parts = base.split('-');
+
+  let tip = '', faza = '', vlo = '', ime = '', datum = '';
+
+  if (parts.length >= 4) {
+    tip = parts[0];
+    faza = parts[1];
+    vlo = parts[2];
+    // Check if last part looks like a date (8 digits YYYYMMDD)
+    const last = parts[parts.length - 1];
+    if (/^\d{8}$/.test(last) && parts.length >= 5) {
+      datum = `${last.slice(0, 4)}-${last.slice(4, 6)}-${last.slice(6, 8)}`;
+      ime = parts.slice(3, parts.length - 1).join('-');
+    } else {
+      ime = parts.slice(3).join('-');
+    }
+  } else {
+    // Doesn't match naming convention — put whole base as ime
+    ime = base;
+  }
+
+  return { tip, faza, vlo, ime, datum, ext };
+}
+
 // ── Edit sub-modal ─────────────────────────────────────────────────────────────
 
 function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }) {
-  const ext = file.fileName.includes('.') ? '.' + file.fileName.split('.').pop() : '';
-  const baseName = ext ? file.fileName.slice(0, -ext.length) : file.fileName;
-  const [newName, setNewName] = useState(baseName);
-  const [newFolderPath, setNewFolderPath] = useState(
+  const parsed = parseFilenameToMeta(file.fileName);
+
+  const [tip, setTip] = useState(parsed.tip);
+  const [faza, setFaza] = useState(parsed.faza);
+  const [vlo, setVlo] = useState(parsed.vlo);
+  const [ime, setIme] = useState(parsed.ime);
+  const [datum, setDatum] = useState(parsed.datum);
+  const [folderPath, setFolderPath] = useState(
     folders.find(f => f.folderId === file.folderId)?.path || ''
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Live filename preview (same logic as generateNewFilename in fileHelpers.js)
+  const previewName = useMemo(() => {
+    const parts = [tip, faza, vlo, ime].filter(Boolean);
+    if (datum) {
+      const ds = datum.replace(/-/g, '');
+      if (ds.length === 8) parts.push(ds);
+    }
+    return parts.length ? parts.join('-') + parsed.ext : '';
+  }, [tip, faza, vlo, ime, datum, parsed.ext]);
+
+  const fieldStyle = (val) =>
+    !val ? 'border-rose-300 bg-rose-50' : 'border-slate-300 bg-white';
+
   const handleSave = async () => {
-    if (!newName.trim()) { setError('Ime ne sme biti prazno'); return; }
-    const targetFolder = folders.find(f => f.path === newFolderPath);
+    if (!tip || !faza || !vlo || !ime.trim()) { setError('Izpolni vsa obvezna polja (TIP, FAZA, VLO, IME)'); return; }
+    if (!previewName) { setError('Novo ime je prazno'); return; }
+    const targetFolder = folders.find(f => f.path === folderPath);
     if (!targetFolder) { setError('Izberi veljavno mapo'); return; }
     const revisionId = file.latestRevisionId || file.latestFileRevisionId || file.fileRevisionId;
     if (!revisionId) { setError('Ne najdem revizije datoteke'); return; }
@@ -82,9 +131,8 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
     setError('');
     try {
       const client = new DaluxApiClient();
-      const finalName = newName.trim().replace(/[\s-]+/g, '_') + ext;
-      await client.moveFile(projektId, fileAreaId, file.fileId, finalName, targetFolder.folderId, revisionId);
-      onSave(finalName);
+      await client.moveFile(projektId, fileAreaId, file.fileId, previewName, targetFolder.folderId, revisionId);
+      onSave(previewName);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -94,36 +142,91 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh]">
         <div className="flex items-center justify-between p-5 border-b">
           <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-            <Edit3 className="w-4 h-4" /> Uredi datoteko
+            <Edit3 className="w-4 h-4" /> Uredi metapodatke
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
         </div>
+
         <div className="p-5 space-y-4">
+          {/* Current filename */}
           <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
             <span className="font-medium">Trenutno:</span> {file.fileName}
           </div>
 
+          {/* TIP, FAZA, VLO row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">TIP <span className="text-red-500">*</span></label>
+              <select value={tip} onChange={e => setTip(e.target.value)}
+                className={`w-full px-2 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${fieldStyle(tip)}`}>
+                <option value="">Izberi...</option>
+                {Object.entries(TIP_OPTIONS).map(([k, v]) => (
+                  <option key={k} value={k}>{k} – {v}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">FAZA <span className="text-red-500">*</span></label>
+              <select value={faza} onChange={e => setFaza(e.target.value)}
+                className={`w-full px-2 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${fieldStyle(faza)}`}>
+                <option value="">Izberi...</option>
+                {Object.entries(FAZA_OPTIONS).map(([k, v]) => (
+                  <option key={k} value={k}>{k} – {v}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">VLO <span className="text-red-500">*</span></label>
+              <select value={vlo} onChange={e => setVlo(e.target.value)}
+                className={`w-full px-2 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${fieldStyle(vlo)}`}>
+                <option value="">Izberi...</option>
+                {Object.entries(VLO_OPTIONS).map(([k, v]) => (
+                  <option key={k} value={k}>{k} – {v}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* IME */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Novo ime</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">IME <span className="text-red-500">*</span></label>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={newName}
-                onChange={e => setNewName(e.target.value.replace(/[\s-]+/g, '_'))}
-                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              <input type="text" value={ime}
+                onChange={e => setIme(e.target.value.replace(/[\s-]+/g, '_').slice(0, 100))}
+                placeholder="Ime dokumenta"
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${fieldStyle(ime)}`}
               />
-              {ext && <span className="text-sm text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded">{ext}</span>}
+              {parsed.ext && <span className="text-sm text-slate-500 font-mono bg-slate-100 px-2 py-1.5 rounded">{parsed.ext}</span>}
             </div>
             <p className="text-xs text-slate-400 mt-1">Presledki in - se zamenjajo z _</p>
           </div>
 
+          {/* DATUM */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nova mapa</label>
-            <FolderTreePicker folders={folders} value={newFolderPath} onChange={setNewFolderPath} />
+            <label className="block text-xs font-medium text-slate-700 mb-1">DATUM (opcijsko)</label>
+            <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            />
           </div>
+
+          {/* Folder */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Mapa</label>
+            <FolderTreePicker folders={folders} value={folderPath} onChange={setFolderPath} />
+          </div>
+
+          {/* Preview */}
+          {previewName && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-medium text-blue-700 mb-1 flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5" /> Predogled novega imena:
+              </p>
+              <code className="text-sm font-mono text-blue-900 break-all">{previewName}</code>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -132,11 +235,8 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
           )}
 
           <div className="flex gap-3 pt-1">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm"
-            >
+            <button onClick={handleSave} disabled={saving}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm">
               {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Shranjujem...</> : <><Save className="w-4 h-4" /> Shrani</>}
             </button>
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm transition">
@@ -229,7 +329,7 @@ const FileMetadataModal = ({ projektId, projektSifra, onClose }) => {
       }
       return item;
     }));
-    setSaveSuccess(`Datoteka preimenovana v: ${newName}`);
+    setSaveSuccess(`Datoteka shranjena kot: ${newName}`);
     setEditingFile(null);
     setTimeout(() => setSaveSuccess(''), 4000);
   };
@@ -338,7 +438,7 @@ const FileMetadataModal = ({ projektId, projektSifra, onClose }) => {
                                   onClick={() => setEditingFile(fd)}
                                   className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
                                 >
-                                  <Edit3 className="w-3 h-3" /> Uredi
+                                  <Edit3 className="w-3 h-3" /> Uredi metapodatke
                                 </button>
                               </td>
                             </tr>
