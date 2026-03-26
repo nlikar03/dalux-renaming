@@ -45,6 +45,18 @@ export default class DaluxApiClient {
     return res.json();
   }
 
+  async getFileAreasById(projectId) {
+    const res = await this._fetch(`${this.baseUrl}/projects/id/${projectId}/file_areas`);
+    if (!res.ok) throw new Error("Failed to fetch file areas");
+    return res.json();
+  }
+
+  async getFoldersByProjectId(projectId, fileAreaId) {
+    const res = await this._fetch(`${this.baseUrl}/projects/id/${projectId}/file_areas/${fileAreaId}/folders`);
+    if (!res.ok) throw new Error("Failed to fetch folders");
+    return res.json();
+  }
+
   // ========== DOWNLOAD METHODS WITH DATE RANGE FILTERING ==========
 
   async downloadFilesWithProgress(projectNumber, fileAreaId, startDate = null, endDate = null, dateField = "lastModified", onProgress = null) {

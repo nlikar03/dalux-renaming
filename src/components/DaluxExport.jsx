@@ -34,7 +34,9 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
     setLoading(true);
     setError('');
     try {
-      const areas = await client.getFileAreas(projektSifra);
+      const areas = projektId
+        ? await client.getFileAreasById(projektId)
+        : await client.getFileAreas(projektSifra);
       setFileAreas(areas);
       if (areas.length > 0) {
         setSelectedFileArea(areas[0].data.fileAreaId);

@@ -15,6 +15,7 @@ const FileEditor = ({
   fazaOptions,
   vloOptions,
   projektSifra,
+  projektId,
   onUpdate,
   onNavigate
 }) => {
@@ -23,20 +24,20 @@ const FileEditor = ({
   const [daluxFolders, setDaluxFolders] = useState(null); // null = not loaded
 
   useEffect(() => {
-    if (!projektSifra) return;
+    if (!projektId) return;
     const client = new DaluxApiClient();
     (async () => {
       try {
-        const areas = await client.getFileAreas(projektSifra);
+        const areas = await client.getFileAreasById(projektId);
         if (!areas || areas.length === 0) return;
         const fileAreaId = areas[0].data.fileAreaId;
-        const folders = await client.getFolders(projektSifra, fileAreaId);
+        const folders = await client.getFoldersByProjectId(projektId, fileAreaId);
         setDaluxFolders(folders);
       } catch {
         // Silently fall back to constants
       }
     })();
-  }, [projektSifra]);
+  }, [projektId]);
 
   if (!file) {
     return (

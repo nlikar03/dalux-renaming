@@ -130,9 +130,8 @@ export const useFileManager = () => {
   /**
    * Start new project
    */
-  const startProject = (sifra, apiKey, projectId) => {
+  const startProject = (sifra, projectId) => {
     setProjektSifra(sifra);
-    setDaluxApiKey(apiKey);
     setDaluxProjectId(projectId);
     setDaluxConnected(true);
     setProjektStarted(true);

@@ -78,6 +78,7 @@ function App() {
     );
   }
 
+
   // Show File Rename tool (existing functionality)
   const stats = getStats();
   const currentFile = files[currentIndex];
@@ -160,6 +161,7 @@ function App() {
             fazaOptions={fazaOptions}
             vloOptions={vloOptions}
             projektSifra={projektSifra}
+            projektId={daluxProjectId}
             onUpdate={updateFile}
             onNavigate={handleNavigate}
           />
