@@ -330,7 +330,7 @@ export default class DaluxApiClient {
           // Step 2: stream file through backend proxy to Dalux (no buffering in RAM)
           const blob = content instanceof Blob ? content : new Blob([content]);
           const uploadForm = new FormData();
-          uploadForm.append("projectNumber", projectId);
+          uploadForm.append("projectId", projectId);
           uploadForm.append("fileAreaId", fileAreaId);
           uploadForm.append("file", blob, filename);
 
