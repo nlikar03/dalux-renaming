@@ -63,13 +63,13 @@ export default class DaluxApiClient {
     return res.json();
   }
 
-  async moveFile(projectId, fileAreaId, fileId, newName, newFolderId, revisionId) {
+  async moveFile(projectId, fileAreaId, fileId, newName, newFolderId, currentFolderId, revisionId) {
     const res = await this._fetch(
       `${this.baseUrl}/projects/id/${projectId}/file_areas/${fileAreaId}/files/${fileId}/move`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_name: newName, new_folder_id: newFolderId, revision_id: revisionId }),
+        body: JSON.stringify({ new_name: newName, new_folder_id: newFolderId, current_folder_id: currentFolderId, revision_id: revisionId }),
       }
     );
     if (!res.ok) {

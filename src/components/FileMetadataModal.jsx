@@ -131,7 +131,7 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
     setError('');
     try {
       const client = new DaluxApiClient();
-      await client.moveFile(projektId, fileAreaId, file.fileId, previewName, targetFolder.folderId, revisionId);
+      await client.moveFile(projektId, fileAreaId, file.fileId, previewName, targetFolder.folderId, file.folderId, revisionId);
       onSave(previewName);
     } catch (e) {
       setError(e.message);
