@@ -7,7 +7,7 @@ import { MAPNA_STRUKTURA } from '../utils/constants';
 import DaluxApiClient from '../api/daluxApi';
 import JSZip from 'jszip';
 
-const DownloadSection = ({ files, projektSifra, daluxApiKey, daluxConnected }) => {
+const DownloadSection = ({ files, projektSifra, projektId, daluxApiKey, daluxConnected }) => {
   const [uploadMode, setUploadMode] = useState('zip');
   const [uploading, setUploading] = useState(false);
   const [uploadResults, setUploadResults] = useState(null);
@@ -68,7 +68,7 @@ const DownloadSection = ({ files, projektSifra, daluxApiKey, daluxConnected }) =
         filesDict[folder].push([filename, file.content]);
       });
 
-      const results = await client.bulkUploadFromStructure(projektSifra, filesDict);
+      const results = await client.bulkUploadFromStructure(projektId || projektSifra, filesDict);
       setUploadResults(results);
     } catch (error) {
       setUploadResults({

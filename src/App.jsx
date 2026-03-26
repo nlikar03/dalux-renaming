@@ -180,6 +180,7 @@ function App() {
           <DownloadSection
             files={files}
             projektSifra={projektSifra}
+            projektId={daluxProjectId}
             daluxApiKey={daluxApiKey}
             daluxConnected={daluxConnected}
           />

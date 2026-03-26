@@ -299,7 +299,8 @@ export default class DaluxApiClient {
       throw new Error("No files to upload");
     }
 
-    const fileAreas = await this.getFileAreas(projectId);
+    // projectId here is always the UUID (e.g. S425569471122376713)
+    const fileAreas = await this.getFileAreasById(projectId);
     if (!fileAreas || fileAreas.length === 0) {
       throw new Error("No file areas found");
     }
@@ -314,7 +315,7 @@ export default class DaluxApiClient {
         try {
           // Step 1: create upload slot (backend calls Dalux, returns guid)
           const slotForm = new FormData();
-          slotForm.append("projectNumber", projectId);
+          slotForm.append("projectId", projectId);   // UUID — no ambiguous name lookup
           slotForm.append("fileAreaId", fileAreaId);
           slotForm.append("folderPath", folder);
           slotForm.append("fileName", filename);
