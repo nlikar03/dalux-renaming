@@ -11,11 +11,13 @@ import DownloadSection from './components/DownloadSection';
 import Sidebar from './components/Sidebar';
 import PasswordGate from './components/PasswordGate';
 import { getPassword } from './utils/auth';
-import { Settings, ArrowLeft } from 'lucide-react';
+import { Settings, ArrowLeft, FileText } from 'lucide-react';
+import FileMetadataModal from './components/FileMetadataModal';
 
 function App() {
   const [authenticated, setAuthenticated] = useState(!!getPassword());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [currentTool, setCurrentTool] = useState(null); // null | 'rename' | 'export'
   const [selectedProject, setSelectedProject] = useState(null); // Store full project info
 
@@ -114,7 +116,7 @@ function App() {
             <div>
               <h1 className="text-2xl font-bold">Preimenovanje Projektnih Datotek</h1>
               <p className="text-slate-300 text-sm mt-1">
-                Projekt: <strong>{projektSifra}</strong>
+                Projekt: <strong>{projektSifra}</strong>{selectedProject?.name && <span> — {selectedProject.name}</span>}
               </p>
             </div>
 
@@ -125,6 +127,14 @@ function App() {
               >
                 <ArrowLeft className="w-5 h-5" />
                 Nazaj
+              </button>
+
+              <button
+                onClick={() => setShowMetadataModal(true)}
+                className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm"
+              >
+                <FileText className="w-4 h-4" />
+                Metapodatki
               </button>
 
               <button
@@ -175,6 +185,14 @@ function App() {
           />
         </div>
       </div>
+
+      {showMetadataModal && (
+        <FileMetadataModal
+          projektId={daluxProjectId}
+          projektSifra={projektSifra}
+          onClose={() => setShowMetadataModal(false)}
+        />
+      )}
 
       {/* Sidebar */}
       <Sidebar

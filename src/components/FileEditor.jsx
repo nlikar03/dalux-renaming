@@ -6,6 +6,7 @@ import { getAllFolderPaths } from '../utils/constants';
 import FilePreview from './FilePreview';
 import { analyzeFileWithAI } from '../services/aiService';
 import DaluxApiClient from '../api/daluxApi';
+import FolderTreePicker from './FolderTreePicker';
 
 const FileEditor = ({
   file,
@@ -275,18 +276,26 @@ const FileEditor = ({
         <label className="block text-sm font-medium text-slate-700 mb-2">
           Ciljna podmapa: <span className="text-red-500">*</span>
         </label>
-        <select
-          value={file.target_subfolder}
-          onChange={(e) => handleUpdate('target_subfolder', e.target.value)}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition ${getFieldStyle(file.target_subfolder)}`}
-        >
-          <option value="">Izberi mapo...</option>
-          {folderOptions.map(({ value, label }) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+        {daluxFolders ? (
+          <FolderTreePicker
+            folders={daluxFolders}
+            value={file.target_subfolder}
+            onChange={(path) => handleUpdate('target_subfolder', path)}
+          />
+        ) : (
+          <select
+            value={file.target_subfolder}
+            onChange={(e) => handleUpdate('target_subfolder', e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition ${getFieldStyle(file.target_subfolder)}`}
+          >
+            <option value="">Izberi mapo...</option>
+            {folderOptions.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        )}
         <p className="text-xs text-slate-500 mt-1">
           {daluxFolders ? `Mape iz Dalux (${daluxFolders.length})` : 'Izberi mapo iz strukture projekta'}
         </p>
