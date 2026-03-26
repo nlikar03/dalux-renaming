@@ -39,6 +39,12 @@ export default class DaluxApiClient {
     return res.json();
   }
 
+  async getFolders(projectNumber, fileAreaId) {
+    const res = await this._fetch(`${this.baseUrl}/projects/${projectNumber}/file_areas/${fileAreaId}/folders`);
+    if (!res.ok) throw new Error("Failed to fetch folders");
+    return res.json();
+  }
+
   // ========== DOWNLOAD METHODS WITH DATE RANGE FILTERING ==========
 
   async downloadFilesWithProgress(projectNumber, fileAreaId, startDate = null, endDate = null, dateField = "lastModified", onProgress = null) {

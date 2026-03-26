@@ -1,6 +1,5 @@
 export const generateNewFilename = (fileData, projektSifra) => {
   const parts = [
-    projektSifra,
     fileData.tip || '',
     fileData.faza || '',
     fileData.vlo || '',
@@ -54,7 +53,7 @@ export const getFilenameWithoutExtension = (filename) => {
 
 
 export const sanitizeFilename = (name) => {
-  return name.replace(/\s+/g, '_').substring(0, 100);
+  return name.replace(/[\s-]+/g, '_').substring(0, 100);
 };
 
 

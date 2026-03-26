@@ -1,14 +1,15 @@
 // src/components/FileEditor.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit3, ChevronLeft, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import { getAllFolderPaths } from '../utils/constants';
 import FilePreview from './FilePreview';
 import { analyzeFileWithAI } from '../services/aiService';
+import DaluxApiClient from '../api/daluxApi';
 
-const FileEditor = ({ 
-  file, 
-  index, 
+const FileEditor = ({
+  file,
+  index,
   total,
   tipOptions,
   fazaOptions,
@@ -19,6 +20,23 @@ const FileEditor = ({
 }) => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [daluxFolders, setDaluxFolders] = useState(null); // null = not loaded
+
+  useEffect(() => {
+    if (!projektSifra) return;
+    const client = new DaluxApiClient();
+    (async () => {
+      try {
+        const areas = await client.getFileAreas(projektSifra);
+        if (!areas || areas.length === 0) return;
+        const fileAreaId = areas[0].data.fileAreaId;
+        const folders = await client.getFolders(projektSifra, fileAreaId);
+        setDaluxFolders(folders);
+      } catch {
+        // Silently fall back to constants
+      }
+    })();
+  }, [projektSifra]);
 
   if (!file) {
     return (
@@ -36,6 +54,9 @@ const FileEditor = ({
   }
 
   const allPaths = getAllFolderPaths();
+  const folderOptions = daluxFolders
+    ? daluxFolders.map(f => ({ value: f.path, label: f.path }))
+    : allPaths.map(p => ({ value: p, label: p }));
 
   const handleUpdate = (field, value) => {
     onUpdate(index, { [field]: value });
@@ -225,7 +246,7 @@ const FileEditor = ({
         <input
           type="text"
           value={file.ime}
-          onChange={(e) => handleUpdate('ime', e.target.value.replace(/\s+/g, '_').substring(0, 100))}
+          onChange={(e) => handleUpdate('ime', e.target.value.replace(/[\s-]+/g, '_').substring(0, 100))}
           maxLength={100}
           placeholder="Vnesi ime dokumenta"
           className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
@@ -259,14 +280,14 @@ const FileEditor = ({
           className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition ${getFieldStyle(file.target_subfolder)}`}
         >
           <option value="">Izberi mapo...</option>
-          {allPaths.map(path => (
-            <option key={path} value={path}>
-              {path}
+          {folderOptions.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
             </option>
           ))}
         </select>
         <p className="text-xs text-slate-500 mt-1">
-          Izberi mapo iz strukture projekta
+          {daluxFolders ? `Mape iz Dalux (${daluxFolders.length})` : 'Izberi mapo iz strukture projekta'}
         </p>
       </div>
 
