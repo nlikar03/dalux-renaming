@@ -1,6 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TIP_OPTIONS, FAZA_OPTIONS, VLO_OPTIONS } from '../utils/constants';
 import { createFileObject, isFileComplete } from '../utils/fileHelpers';
+
+// ── IndexedDB helpers ──────────────────────────────────────────────────────────
+
+const IDB_NAME = 'kolektor-session';
+const IDB_STORE = 'draft';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function idbSave(data) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(data, 'session');
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
+async function idbLoad() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get('session');
+      req.onsuccess = e => resolve(e.target.result || null);
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch { return null; }
+}
+
+async function idbClear() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).clear();
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  });
+}
 
 export const useFileManager = () => {
   const [files, setFiles] = useState([]);
@@ -8,16 +54,44 @@ export const useFileManager = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [projektSifra, setProjektSifra] = useState('');
   const [projektStarted, setProjektStarted] = useState(false);
-  
+
   // Dalux state
   const [daluxApiKey, setDaluxApiKey] = useState('');
   const [daluxConnected, setDaluxConnected] = useState(false);
   const [daluxProjectId, setDaluxProjectId] = useState('');
-  
+
   // Custom options (user can add their own)
   const [tipOptions, setTipOptions] = useState(TIP_OPTIONS);
   const [fazaOptions, setFazaOptions] = useState(FAZA_OPTIONS);
   const [vloOptions, setVloOptions] = useState(VLO_OPTIONS);
+
+  // Track whether IDB has finished loading (don't save before load completes)
+  const idbLoaded = useRef(false);
+  const saveTimer = useRef(null);
+
+  // Load persisted session from IndexedDB on mount
+  useEffect(() => {
+    idbLoad().then(saved => {
+      if (saved) {
+        if (saved.files?.length)        setFiles(saved.files);
+        if (saved.currentIndex != null) setCurrentIndex(saved.currentIndex);
+        if (saved.currentPage != null)  setCurrentPage(saved.currentPage);
+        if (saved.tipOptions)           setTipOptions(saved.tipOptions);
+        if (saved.fazaOptions)          setFazaOptions(saved.fazaOptions);
+        if (saved.vloOptions)           setVloOptions(saved.vloOptions);
+      }
+    }).catch(() => {}).finally(() => { idbLoaded.current = true; });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save to IndexedDB whenever relevant state changes (debounced 600 ms)
+  useEffect(() => {
+    if (!idbLoaded.current) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      idbSave({ files, currentIndex, currentPage, tipOptions, fazaOptions, vloOptions })
+        .catch(e => console.warn('IDB save failed:', e));
+    }, 600);
+  }, [files, currentIndex, currentPage, tipOptions, fazaOptions, vloOptions]);
 
   /**
    * Add files to processing list
@@ -138,7 +212,7 @@ export const useFileManager = () => {
   };
 
   /**
-   * Reset project
+   * Reset project (also wipes the persisted draft)
    */
   const resetProject = () => {
     setProjektSifra('');
@@ -147,6 +221,7 @@ export const useFileManager = () => {
     setDaluxConnected(false);
     setProjektStarted(false);
     clearAllFiles();
+    idbClear().catch(e => console.warn('IDB clear failed:', e));
   };
 
   return {

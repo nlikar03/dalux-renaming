@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Folder, FolderOpen, ChevronRight, ChevronDown, Edit3, Save, Loader2, AlertCircle, CheckCircle2, FileText, Eye } from 'lucide-react';
 import DaluxApiClient from '../api/daluxApi';
-import FolderTreePicker from './FolderTreePicker';
 import { TIP_OPTIONS, FAZA_OPTIONS, VLO_OPTIONS } from '../utils/constants';
 
 // ── Inline folder tree (always visible, sidebar) ───────────────────────────────
@@ -92,7 +91,7 @@ function parseFilenameToMeta(fileName) {
 
 // ── Edit sub-modal ─────────────────────────────────────────────────────────────
 
-function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }) {
+function EditFileModal({ file, projektId, fileAreaId, onSave, onClose }) {
   const parsed = parseFilenameToMeta(file.fileName);
 
   const [tip, setTip] = useState(parsed.tip);
@@ -100,9 +99,6 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
   const [vlo, setVlo] = useState(parsed.vlo);
   const [ime, setIme] = useState(parsed.ime);
   const [datum, setDatum] = useState(parsed.datum);
-  const [folderPath, setFolderPath] = useState(
-    folders.find(f => f.folderId === file.folderId)?.path || ''
-  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -122,8 +118,6 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
   const handleSave = async () => {
     if (!tip || !faza || !vlo || !ime.trim()) { setError('Izpolni vsa obvezna polja (TIP, FAZA, VLO, IME)'); return; }
     if (!previewName) { setError('Novo ime je prazno'); return; }
-    const targetFolder = folders.find(f => f.path === folderPath);
-    if (!targetFolder) { setError('Izberi veljavno mapo'); return; }
     const revisionId = file.latestRevisionId || file.latestFileRevisionId || file.fileRevisionId;
     if (!revisionId) { setError('Ne najdem revizije datoteke'); return; }
 
@@ -131,7 +125,7 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
     setError('');
     try {
       const client = new DaluxApiClient();
-      await client.moveFile(projektId, fileAreaId, file.fileId, previewName, targetFolder.folderId, file.folderId, revisionId);
+      await client.moveFile(projektId, fileAreaId, file.fileId, previewName, file.folderId, file.folderId, revisionId);
       onSave(previewName);
     } catch (e) {
       setError(e.message);
@@ -210,12 +204,6 @@ function EditFileModal({ file, folders, projektId, fileAreaId, onSave, onClose }
             <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             />
-          </div>
-
-          {/* Folder */}
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Mapa</label>
-            <FolderTreePicker folders={folders} value={folderPath} onChange={setFolderPath} />
           </div>
 
           {/* Preview */}
@@ -458,7 +446,6 @@ const FileMetadataModal = ({ projektId, projektSifra, onClose }) => {
       {editingFile && (
         <EditFileModal
           file={editingFile}
-          folders={folders}
           projektId={projektId}
           fileAreaId={selectedAreaId}
           onSave={handleSaveSuccess}
