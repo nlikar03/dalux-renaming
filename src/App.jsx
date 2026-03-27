@@ -266,6 +266,7 @@ function App() {
             projektId={daluxProjectId}
             daluxApiKey={daluxApiKey}
             daluxConnected={daluxConnected}
+            onClearFiles={() => { clearAllFiles(); setSelectedIndices(new Set()); }}
           />
         </div>
       </div>

@@ -1,7 +1,7 @@
 // src/components/DownloadSection.jsx
 
 import { useState } from 'react';
-import { Download, Cloud, Package, AlertCircle, CheckCircle, Loader2, Clock, RefreshCw, XCircle } from 'lucide-react';
+import { Download, Cloud, Package, AlertCircle, CheckCircle, Loader2, Clock, RefreshCw, XCircle, RotateCcw } from 'lucide-react';
 import { isFileComplete, generateNewFilename, findDuplicateFilenames } from '../utils/fileHelpers';
 import DaluxApiClient from '../api/daluxApi';
 
@@ -71,7 +71,7 @@ function UploadProgressList({ statuses }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-const DownloadSection = ({ files, projektSifra, projektId, daluxConnected }) => {
+const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onClearFiles }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadResults, setUploadResults] = useState(null);
   const [fileStatuses, setFileStatuses] = useState({});
@@ -278,6 +278,15 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected }) => 
                       </p>
                       {uploadResults.failed > 0 && (
                         <p className="text-red-700 mt-1">❌ Neuspešnih: {uploadResults.failed}</p>
+                      )}
+                      {uploadResults.failed === 0 && (
+                        <button
+                          onClick={onClearFiles}
+                          className="mt-3 flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-lg transition"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Naloži nove datoteke
+                        </button>
                       )}
                     </div>
                   )}
