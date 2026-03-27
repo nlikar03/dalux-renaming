@@ -1,22 +1,28 @@
 // src/components/FileList.jsx
 
-import React from 'react';
 import { FileText, ChevronLeft, ChevronRight, X, CheckCircle, Clock } from 'lucide-react';
 import { isFileComplete } from '../utils/fileHelpers';
 
-const FileList = ({ 
-  files, 
-  currentIndex, 
-  currentPage, 
-  onSelectFile, 
+const FileList = ({
+  files,
+  currentIndex,
+  currentPage,
+  onSelectFile,
   onDeleteFile,
-  onPageChange 
+  onPageChange,
+  selectedIndices,
+  onToggleSelect,
+  onSelectAllPage,
 }) => {
   const filesPerPage = 10;
   const totalPages = Math.ceil(files.length / filesPerPage);
   const startIdx = currentPage * filesPerPage;
   const endIdx = Math.min(startIdx + filesPerPage, files.length);
   const currentFiles = files.slice(startIdx, endIdx);
+  const pageIndices = Array.from({ length: endIdx - startIdx }, (_, i) => startIdx + i);
+
+  const allPageSelected = pageIndices.length > 0 && pageIndices.every(i => selectedIndices.has(i));
+  const somePageSelected = pageIndices.some(i => selectedIndices.has(i));
 
   if (files.length === 0) {
     return (
@@ -40,7 +46,23 @@ const FileList = ({
         <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
           <FileText className="w-5 h-5" />
           Seznam datotek ({files.length})
+          {selectedIndices.size > 0 && (
+            <span className="ml-2 text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+              {selectedIndices.size} izbranih
+            </span>
+          )}
         </h3>
+        {/* Select-all checkbox for current page */}
+        <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={allPageSelected}
+            ref={el => { if (el) el.indeterminate = somePageSelected && !allPageSelected; }}
+            onChange={() => onSelectAllPage(pageIndices, !allPageSelected)}
+            className="w-4 h-4 rounded accent-blue-600"
+          />
+          Stran
+        </label>
       </div>
 
       {/* Pagination Controls */}
@@ -53,11 +75,11 @@ const FileList = ({
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          
+
           <span className="text-sm text-slate-600">
             Stran {currentPage + 1} / {totalPages}
           </span>
-          
+
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage >= totalPages - 1}
@@ -74,18 +96,31 @@ const FileList = ({
           const actualIdx = startIdx + localIdx;
           const complete = isFileComplete(file);
           const isSelected = actualIdx === currentIndex;
+          const isChecked = selectedIndices.has(actualIdx);
 
           return (
             <div
               key={actualIdx}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition ${
-                isSelected 
-                  ? 'border-blue-500 bg-blue-50' 
+              data-selected={isSelected}
+              className={`flex items-center gap-2 p-3 rounded-lg border transition ${
+                isSelected
+                  ? 'border-blue-500 bg-blue-50'
+                  : isChecked
+                  ? 'border-blue-300 bg-blue-50/50'
                   : complete
                   ? 'border-green-200 bg-green-50 hover:bg-green-100'
                   : 'border-yellow-200 bg-yellow-50 hover:bg-yellow-100'
               }`}
             >
+              {/* Checkbox */}
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => onToggleSelect(actualIdx)}
+                onClick={e => e.stopPropagation()}
+                className="w-4 h-4 flex-shrink-0 rounded accent-blue-600"
+              />
+
               {/* Status Icon */}
               <div className="flex-shrink-0">
                 {complete ? (

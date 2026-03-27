@@ -149,6 +149,17 @@ export const useFileManager = () => {
   };
 
   /**
+   * Batch update multiple files — single state write so IDB debounce fires once
+   */
+  const updateFiles = (indices, updates) => {
+    setFiles(prev => {
+      const next = [...prev];
+      indices.forEach(i => { next[i] = { ...next[i], ...updates }; });
+      return next;
+    });
+  };
+
+  /**
    * Clear all files
    */
   const clearAllFiles = () => {
@@ -242,6 +253,7 @@ export const useFileManager = () => {
     addFiles,
     removeFile,
     updateFile,
+    updateFiles,
     clearAllFiles,
     setCurrentIndex,
     setCurrentPage,

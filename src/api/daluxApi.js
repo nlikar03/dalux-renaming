@@ -294,12 +294,65 @@ export default class DaluxApiClient {
     return res.json();
   }
 
-  async bulkUploadFromStructure(projectId, filesDict) {
+  // Single-file upload with up to maxAttempts retries and optional status callback.
+  // onFileStatus(filename, folder, status, attempt) — status: 'uploading'|'retrying'|'done'
+  async _uploadSingleFile(projectId, fileAreaId, folder, filename, content, onFileStatus, maxAttempts = 3) {
+    let lastError;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      onFileStatus?.(filename, folder, attempt > 1 ? 'retrying' : 'uploading', attempt);
+      try {
+        // Step 1: create upload slot
+        const slotForm = new FormData();
+        slotForm.append("projectId", projectId);
+        slotForm.append("fileAreaId", fileAreaId);
+        slotForm.append("folderPath", folder);
+        slotForm.append("fileName", filename);
+
+        const slotRes = await this._fetch(`${this.baseUrl}/upload_slot`, { method: "POST", body: slotForm });
+        if (!slotRes.ok) throw new Error(`Slot error: ${await slotRes.text()}`);
+        const slot = await slotRes.json();
+
+        // Step 2: stream file through backend proxy to Dalux
+        const blob = content instanceof Blob ? content : new Blob([content]);
+        const uploadForm = new FormData();
+        uploadForm.append("projectId", projectId);
+        uploadForm.append("fileAreaId", fileAreaId);
+        uploadForm.append("file", blob, filename);
+
+        const uploadRes = await this._fetch(`${this.baseUrl}/upload_proxy/${slot.upload_guid}`, { method: "POST", body: uploadForm });
+        if (!uploadRes.ok) throw new Error(`Upload error: ${await uploadRes.text()}`);
+
+        // Step 3: finalize
+        const finalRes = await this._fetch(`${this.baseUrl}/finalize_upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id:  slot.project_id,
+            fileAreaId,
+            folder_id:   slot.folder_id,
+            upload_guid: slot.upload_guid,
+            fileName:    filename,
+          }),
+        });
+        if (!finalRes.ok) throw new Error(`Finalize error: ${await finalRes.text()}`);
+
+        onFileStatus?.(filename, folder, 'done', attempt);
+        return;
+      } catch (err) {
+        lastError = err;
+        if (attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, 800 * attempt)); // 800ms, 1600ms
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  async bulkUploadFromStructure(projectId, filesDict, onFileStatus = null) {
     if (!filesDict || Object.keys(filesDict).length === 0) {
       throw new Error("No files to upload");
     }
 
-    // projectId here is always the UUID (e.g. S425569471122376713)
     const fileAreas = await this.getFileAreasById(projectId);
     if (!fileAreas || fileAreas.length === 0) {
       throw new Error("No file areas found");
@@ -313,51 +366,11 @@ export default class DaluxApiClient {
 
       for (const [filename, content] of filesList) {
         try {
-          // Step 1: create upload slot (backend calls Dalux, returns guid)
-          const slotForm = new FormData();
-          slotForm.append("projectId", projectId);   // UUID — no ambiguous name lookup
-          slotForm.append("fileAreaId", fileAreaId);
-          slotForm.append("folderPath", folder);
-          slotForm.append("fileName", filename);
-
-          const slotRes = await this._fetch(`${this.baseUrl}/upload_slot`, {
-            method: "POST",
-            body: slotForm,
-          });
-          if (!slotRes.ok) throw new Error(`Slot error: ${await slotRes.text()}`);
-          const slot = await slotRes.json();
-
-          // Step 2: stream file through backend proxy to Dalux (no buffering in RAM)
-          const blob = content instanceof Blob ? content : new Blob([content]);
-          const uploadForm = new FormData();
-          uploadForm.append("projectId", projectId);
-          uploadForm.append("fileAreaId", fileAreaId);
-          uploadForm.append("file", blob, filename);
-
-          const uploadRes = await this._fetch(`${this.baseUrl}/upload_proxy/${slot.upload_guid}`, {
-            method: "POST",
-            body: uploadForm,
-          });
-          if (!uploadRes.ok) throw new Error(`Upload error: ${await uploadRes.text()}`);
-
-          // Step 3: finalize (use project_id + folder_id from slot — no re-lookup)
-          const finalRes = await this._fetch(`${this.baseUrl}/finalize_upload`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              project_id:  slot.project_id,
-              fileAreaId,
-              folder_id:   slot.folder_id,
-              upload_guid: slot.upload_guid,
-              fileName:    filename,
-            }),
-          });
-          if (!finalRes.ok) throw new Error(`Finalize error: ${await finalRes.text()}`);
-
+          await this._uploadSingleFile(projectId, fileAreaId, folder, filename, content, onFileStatus);
           allResults.success++;
           allResults.details.push({ file: filename, folder, status: "success" });
-
         } catch (error) {
+          onFileStatus?.(filename, folder, 'failed', null, error.message);
           allResults.failed++;
           allResults.details.push({ file: filename, folder, status: "failed", error: error.message });
         }

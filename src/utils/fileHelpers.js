@@ -67,6 +67,20 @@ export const readFileAsArrayBuffer = (file) => {
 };
 
 
+export const findDuplicateFilenames = (files, projektSifra) => {
+  const seen = new Map(); // outputName -> [originalName, ...]
+  files.forEach(f => {
+    if (!isFileComplete(f)) return;
+    const name = generateNewFilename(f, projektSifra);
+    if (!seen.has(name)) seen.set(name, []);
+    seen.get(name).push(f.original_name);
+  });
+  return [...seen.entries()]
+    .filter(([, sources]) => sources.length > 1)
+    .map(([outputName, sources]) => ({ outputName, sources }));
+};
+
+
 export const createFileObject = async (uploadedFile) => {
   const content = await readFileAsArrayBuffer(uploadedFile);
   const extension = getFileExtension(uploadedFile.name);
