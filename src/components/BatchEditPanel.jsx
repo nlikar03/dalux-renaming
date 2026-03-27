@@ -2,16 +2,19 @@
 // Shown when 1+ files are selected in FileList — applies metadata to all selected files at once.
 
 import { useState } from 'react';
-import { Layers, X, Check } from 'lucide-react';
+import { Layers, X, Check, Trash2 } from 'lucide-react';
 import { getAllFolderPaths } from '../utils/constants';
 
-const BatchEditPanel = ({ selectedCount, tipOptions, fazaOptions, vloOptions, onApply, onClear }) => {
-  const [tip, setTip]   = useState('');
-  const [faza, setFaza] = useState('');
-  const [vlo, setVlo]   = useState('');
+const BatchEditPanel = ({ selectedCount, tipOptions, fazaOptions, vloOptions, daluxFolders, onApply, onClear, onRemoveSelected }) => {
+  const [tip, setTip]         = useState('');
+  const [faza, setFaza]       = useState('');
+  const [vlo, setVlo]         = useState('');
   const [subfolder, setSubfolder] = useState('');
 
-  const folderPaths = getAllFolderPaths();
+  // Use live Dalux folders if available, otherwise fall back to constants
+  const folderPaths = daluxFolders
+    ? daluxFolders.map(f => f.path).filter(Boolean).sort()
+    : getAllFolderPaths();
 
   const handleApply = () => {
     const updates = {};
@@ -21,7 +24,6 @@ const BatchEditPanel = ({ selectedCount, tipOptions, fazaOptions, vloOptions, on
     if (subfolder) updates.target_subfolder = subfolder;
     if (Object.keys(updates).length === 0) return;
     onApply(updates);
-    // Reset fields after apply
     setTip(''); setFaza(''); setVlo(''); setSubfolder('');
   };
 
@@ -72,7 +74,9 @@ const BatchEditPanel = ({ selectedCount, tipOptions, fazaOptions, vloOptions, on
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Podmapa</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Podmapa {daluxFolders ? `(${daluxFolders.length} iz Dalux)` : '(konstante)'}
+          </label>
           <select value={subfolder} onChange={e => setSubfolder(e.target.value)} className={selectClass}>
             <option value="">— ne spremeni —</option>
             {folderPaths.map(p => (
@@ -95,6 +99,13 @@ const BatchEditPanel = ({ selectedCount, tipOptions, fazaOptions, vloOptions, on
           className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 text-sm rounded-lg border border-slate-300 transition"
         >
           Počisti izbor
+        </button>
+        <button
+          onClick={onRemoveSelected}
+          className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg border border-red-200 transition"
+        >
+          <Trash2 className="w-4 h-4" />
+          Odstrani izbrane
         </button>
       </div>
     </div>

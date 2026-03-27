@@ -1,11 +1,10 @@
 // src/components/FileEditor.jsx
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Edit3, ChevronLeft, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import { getAllFolderPaths } from '../utils/constants';
 import FilePreview from './FilePreview';
 import { analyzeFileWithAI } from '../services/aiService';
-import DaluxApiClient from '../api/daluxApi';
 import FolderTreePicker from './FolderTreePicker';
 
 const FileEditor = ({
@@ -16,29 +15,12 @@ const FileEditor = ({
   fazaOptions,
   vloOptions,
   projektSifra,
-  projektId,
+  daluxFolders,
   onUpdate,
   onNavigate
 }) => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
-  const [daluxFolders, setDaluxFolders] = useState(null); // null = not loaded
-
-  useEffect(() => {
-    if (!projektId) return;
-    const client = new DaluxApiClient();
-    (async () => {
-      try {
-        const areas = await client.getFileAreasById(projektId);
-        if (!areas || areas.length === 0) return;
-        const fileAreaId = areas[0].data.fileAreaId;
-        const folders = await client.getFoldersByProjectId(projektId, fileAreaId);
-        setDaluxFolders(folders);
-      } catch {
-        // Silently fall back to constants
-      }
-    })();
-  }, [projektId]);
 
   if (!file) {
     return (

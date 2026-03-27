@@ -14,6 +14,7 @@ import BatchEditPanel from './components/BatchEditPanel';
 import { getPassword } from './utils/auth';
 import { Settings, ArrowLeft, FileText } from 'lucide-react';
 import FileMetadataModal from './components/FileMetadataModal';
+import DaluxApiClient from './api/daluxApi';
 
 const FILES_PER_PAGE = 10;
 
@@ -24,6 +25,7 @@ function App() {
   const [currentTool, setCurrentTool] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedIndices, setSelectedIndices] = useState(new Set());
+  const [daluxFolders, setDaluxFolders] = useState(null);
 
   const {
     files,
@@ -39,6 +41,7 @@ function App() {
     vloOptions,
     addFiles,
     removeFile,
+    removeFiles,
     updateFile,
     updateFiles,
     clearAllFiles,
@@ -49,6 +52,20 @@ function App() {
     startProject,
     resetProject
   } = useFileManager();
+
+  // Fetch Dalux folders once when project is connected — shared by FileEditor and BatchEditPanel
+  useEffect(() => {
+    if (!daluxProjectId) { setDaluxFolders(null); return; }
+    const client = new DaluxApiClient();
+    (async () => {
+      try {
+        const areas = await client.getFileAreasById(daluxProjectId);
+        if (!areas || areas.length === 0) return;
+        const folders = await client.getFoldersByProjectId(daluxProjectId, areas[0].data.fileAreaId);
+        setDaluxFolders(folders);
+      } catch { /* fall back to constants in child components */ }
+    })();
+  }, [daluxProjectId]);
 
   // ── Handlers defined before early returns so hooks are always called ──────────
 
@@ -109,6 +126,13 @@ function App() {
   const handleBatchApply = (updates) => {
     updateFiles([...selectedIndices], updates);
     setSelectedIndices(new Set());
+  };
+
+  const handleRemoveSelected = () => {
+    if (window.confirm(`Odstrani ${selectedIndices.size} izbranih datotek?`)) {
+      removeFiles([...selectedIndices]);
+      setSelectedIndices(new Set());
+    }
   };
 
   // ── Keyboard navigation — must be before any early returns ───────────────────
@@ -213,8 +237,10 @@ function App() {
               tipOptions={tipOptions}
               fazaOptions={fazaOptions}
               vloOptions={vloOptions}
+              daluxFolders={daluxFolders}
               onApply={handleBatchApply}
               onClear={() => setSelectedIndices(new Set())}
+              onRemoveSelected={handleRemoveSelected}
             />
           )}
 
@@ -228,6 +254,7 @@ function App() {
             vloOptions={vloOptions}
             projektSifra={projektSifra}
             projektId={daluxProjectId}
+            daluxFolders={daluxFolders}
             onUpdate={updateFile}
             onNavigate={handleNavigate}
           />

@@ -160,6 +160,20 @@ export const useFileManager = () => {
   };
 
   /**
+   * Remove multiple files by index in one state write
+   */
+  const removeFiles = (indices) => {
+    const indexSet = new Set(indices);
+    setFiles(prev => prev.filter((_, i) => !indexSet.has(i)));
+    setCurrentIndex(prev => {
+      if (indexSet.has(prev)) return 0;
+      const removedBefore = [...indexSet].filter(i => i < prev).length;
+      return Math.max(0, prev - removedBefore);
+    });
+    setCurrentPage(0);
+  };
+
+  /**
    * Clear all files
    */
   const clearAllFiles = () => {
@@ -254,6 +268,7 @@ export const useFileManager = () => {
     removeFile,
     updateFile,
     updateFiles,
+    removeFiles,
     clearAllFiles,
     setCurrentIndex,
     setCurrentPage,
