@@ -50,9 +50,7 @@ function App() {
     resetProject
   } = useFileManager();
 
-  if (!authenticated) {
-    return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
-  }
+  // ── Handlers defined before early returns so hooks are always called ──────────
 
   const handleToolSelect = (toolId, projectNumber, projectId, projectName) => {
     setCurrentTool(toolId);
@@ -66,28 +64,6 @@ function App() {
     resetProject();
   };
 
-  if (!currentTool || !projektStarted) {
-    return <DaluxManager onToolSelect={handleToolSelect} />;
-  }
-
-  if (currentTool === 'export') {
-    return (
-      <DaluxExport
-        projektSifra={projektSifra}
-        projektId={daluxProjectId}
-        projektName={selectedProject?.name || ''}
-        onBack={handleBackToManager}
-      />
-    );
-  }
-
-  // ── Rename tool ──────────────────────────────────────────────────────────────
-
-  const stats = getStats();
-  const currentFile = files[currentIndex];
-
-  const handleFilesAdded = async (uploadedFiles) => addFiles(uploadedFiles);
-
   const handleNavigate = (newIndex) => {
     if (newIndex >= 0 && newIndex < files.length) {
       setCurrentIndex(newIndex);
@@ -95,6 +71,8 @@ function App() {
       if (newPage !== currentPage) setCurrentPage(newPage);
     }
   };
+
+  const handleFilesAdded = async (uploadedFiles) => addFiles(uploadedFiles);
 
   const handleDeleteFile = (index) => {
     removeFile(index);
@@ -111,8 +89,6 @@ function App() {
       setSelectedIndices(new Set());
     }
   };
-
-  // ── Batch selection helpers ──────────────────────────────────────────────────
 
   const handleToggleSelect = (idx) => {
     setSelectedIndices(prev => {
@@ -135,7 +111,7 @@ function App() {
     setSelectedIndices(new Set());
   };
 
-  // ── Keyboard navigation ──────────────────────────────────────────────────────
+  // ── Keyboard navigation — must be before any early returns ───────────────────
   // Arrow keys move between files when no input/select/textarea is focused.
 
   useEffect(() => {
@@ -153,6 +129,32 @@ function App() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [currentIndex, currentPage, files.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Early returns after all hooks ────────────────────────────────────────────
+
+  if (!authenticated) {
+    return <PasswordGate onAuthenticated={() => setAuthenticated(true)} />;
+  }
+
+  if (!currentTool || !projektStarted) {
+    return <DaluxManager onToolSelect={handleToolSelect} />;
+  }
+
+  if (currentTool === 'export') {
+    return (
+      <DaluxExport
+        projektSifra={projektSifra}
+        projektId={daluxProjectId}
+        projektName={selectedProject?.name || ''}
+        onBack={handleBackToManager}
+      />
+    );
+  }
+
+  // ── Rename tool ──────────────────────────────────────────────────────────────
+
+  const stats = getStats();
+  const currentFile = files[currentIndex];
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
