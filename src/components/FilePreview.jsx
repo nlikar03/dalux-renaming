@@ -1,7 +1,7 @@
 // src/components/FilePreview.jsx
 
 import React from 'react';
-import { Eye, CheckCircle, AlertCircle } from 'lucide-react';
+import { Eye, CheckCircle, AlertCircle, FileText, FolderOpen } from 'lucide-react';
 import { generateNewFilename, isFileComplete } from '../utils/fileHelpers';
 
 const FilePreview = ({ file, projektSifra }) => {
@@ -40,7 +40,7 @@ const FilePreview = ({ file, projektSifra }) => {
           <h4 className={`font-semibold mb-1 ${
             complete ? 'text-green-800' : 'text-yellow-800'
           }`}>
-            {complete ? '✅ Vsi podatki izpolnjeni!' : '⚠️ Manjkajo obvezna polja'}
+            {complete ? 'Vsi podatki izpolnjeni' : 'Manjkajo obvezna polja'}
           </h4>
           {!complete && (
             <p className="text-sm text-yellow-700">
@@ -53,8 +53,9 @@ const FilePreview = ({ file, projektSifra }) => {
       {newFilename && (
         <div className="space-y-3">
           <div>
-            <p className="text-sm font-medium text-slate-700 mb-1">
-              📝 Novo ime datoteke:
+            <p className="text-sm font-medium text-slate-600 mb-1 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" />
+              Novo ime datoteke
             </p>
             <code className="block p-3 bg-white rounded border border-slate-300 text-sm font-mono text-slate-800 break-all">
               {newFilename}
@@ -63,8 +64,9 @@ const FilePreview = ({ file, projektSifra }) => {
 
           {file.target_subfolder && (
             <div>
-              <p className="text-sm font-medium text-slate-700 mb-1">
-                📁 Pot v ZIP arhivu:
+              <p className="text-sm font-medium text-slate-600 mb-1 flex items-center gap-1.5">
+                <FolderOpen className="w-3.5 h-3.5" />
+                Pot v ZIP arhivu
               </p>
               <code className="block p-3 bg-white rounded border border-slate-300 text-sm font-mono text-slate-800 break-all">
                 {fullPath}

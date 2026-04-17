@@ -157,7 +157,7 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
       {completeFiles.length === files.length && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
           <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-          <p className="text-green-800 font-medium">🎉 Vse datoteke so pripravljene!</p>
+          <p className="text-green-800 font-medium">Vse datoteke so pripravljene</p>
         </div>
       )}
 
@@ -168,7 +168,7 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
             <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-yellow-800 font-medium mb-2">
-                ⚠️ {incompleteFiles.length} datotekam še manjkajo podatki
+                {incompleteFiles.length} datotekam še manjkajo podatki
               </p>
               <details className="text-sm">
                 <summary className="cursor-pointer text-yellow-700 hover:text-yellow-900 font-medium">
@@ -203,7 +203,7 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
             <AlertCircle className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-orange-800 font-medium mb-1">
-                ⚠️ {duplicates.length} podvojen{duplicates.length === 1 ? 'o' : 'ih'} ime{duplicates.length !== 1 ? ' datotek' : ' datoteke'}
+                {duplicates.length} podvojen{duplicates.length === 1 ? 'o' : 'ih'} ime{duplicates.length !== 1 ? ' datotek' : ' datoteke'}
               </p>
               <p className="text-sm text-orange-700 mb-2">
                 Naslednje datoteke bodo generirale enako izhodno ime — zadnja bo prepisala prejšnjo.
@@ -238,16 +238,10 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
           {!daluxConnected ? (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
               <AlertCircle className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
-              <p className="text-yellow-800">⚠️ Dalux povezava je že vzpostavljena preko projekta</p>
+              <p className="text-yellow-800">Dalux povezava je že vzpostavljena preko projekta</p>
             </div>
           ) : (
             <>
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  📤 Naložil bom {completeFiles.length} datotek v Dalux projekt: <strong>{projektSifra}</strong>
-                </p>
-              </div>
-
               <button
                 onClick={handleUploadToDalux}
                 disabled={uploading || (hasDuplicates && !duplicatesAcknowledged)}
@@ -268,16 +262,16 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
                 <div className="mt-4">
                   {uploadResults.error ? (
                     <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-red-800 font-medium">❌ Napaka pri nalaganju:</p>
+                      <p className="text-red-800 font-medium">Napaka pri nalaganju:</p>
                       <p className="text-sm text-red-700 mt-1">{uploadResults.error}</p>
                     </div>
                   ) : (
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-green-800 font-medium">
-                        ✅ Uspešno naloženih: {uploadResults.success}
+                        Uspešno naloženih: {uploadResults.success}
                       </p>
                       {uploadResults.failed > 0 && (
-                        <p className="text-red-700 mt-1">❌ Neuspešnih: {uploadResults.failed}</p>
+                        <p className="text-red-700 mt-1">Neuspešnih: {uploadResults.failed}</p>
                       )}
                       {uploadResults.failed === 0 && (
                         <button

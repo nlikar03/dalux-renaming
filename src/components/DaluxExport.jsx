@@ -1,6 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { Download, ArrowLeft, FileText, CheckSquare, Folder, Loader2, AlertCircle, CheckCircle2, XCircle, Calendar, Filter } from 'lucide-react';
+import { Download, ArrowLeft, FileText, CheckSquare, Folder, Loader2, AlertCircle, CheckCircle2, XCircle, Calendar, Filter, FolderOpen, ChevronRight, ChevronDown } from 'lucide-react';
 import DaluxApiClient from '../api/daluxApi';
+
+const FolderNode = ({ node, selectedFolderIds, expandedFolderIds, onToggleSelect, onToggleExpand, depth }) => {
+  const isSelected = selectedFolderIds.has(node.folderId);
+  const isExpanded = expandedFolderIds.has(node.folderId);
+  const hasChildren = node.children && node.children.length > 0;
+  const someChildSelected = node.children?.some(c => selectedFolderIds.has(c.folderId));
+
+  return (
+    <div>
+      <div
+        className={`flex items-center gap-1 px-3 py-2 cursor-pointer hover:bg-slate-50 transition ${isSelected ? 'bg-blue-50' : ''}`}
+        style={{ paddingLeft: `${12 + depth * 20}px` }}
+      >
+        <button
+          type="button"
+          onClick={() => hasChildren && onToggleExpand(node.folderId)}
+          className="w-4 h-4 flex-shrink-0 text-slate-400"
+        >
+          {hasChildren ? (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />) : null}
+        </button>
+        <input
+          type="checkbox"
+          checked={isSelected}
+          ref={el => { if (el) el.indeterminate = !isSelected && !!someChildSelected; }}
+          onChange={() => onToggleSelect(node)}
+          className="w-4 h-4 text-blue-600 rounded flex-shrink-0"
+          onClick={e => e.stopPropagation()}
+        />
+        {isSelected ? (
+          <FolderOpen className="w-4 h-4 text-amber-500 flex-shrink-0" />
+        ) : (
+          <Folder className="w-4 h-4 text-slate-400 flex-shrink-0" />
+        )}
+        <span
+          className={`text-sm truncate ${isSelected ? 'font-medium text-blue-800' : 'text-slate-700'}`}
+          onClick={() => onToggleSelect(node)}
+        >
+          {node.folderName || node.name || node.folderId}
+        </span>
+      </div>
+      {hasChildren && isExpanded && node.children.map(child => (
+        <FolderNode
+          key={child.folderId}
+          node={child}
+          selectedFolderIds={selectedFolderIds}
+          expandedFolderIds={expandedFolderIds}
+          onToggleSelect={onToggleSelect}
+          onToggleExpand={onToggleExpand}
+          depth={depth + 1}
+        />
+      ))}
+    </div>
+  );
+};
 
 const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
   const [fileAreas, setFileAreas] = useState([]);
@@ -17,6 +71,13 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
   const [downloadTasks, setDownloadTasks] = useState(false);
   const [includeFormAttachments, setIncludeFormAttachments] = useState(false);
   
+  // Folder filtering
+  const [folders, setFolders] = useState([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
+  const [selectedFolderIds, setSelectedFolderIds] = useState(new Set());
+  const [expandedFolderIds, setExpandedFolderIds] = useState(new Set());
+  const [enableFolderFilter, setEnableFolderFilter] = useState(false);
+
   // NEW: Date filtering options
   const [enableDateFilter, setEnableDateFilter] = useState(false);
   const [startDate, setStartDate] = useState('');  // Start date (YYYY-MM-DD)
@@ -29,6 +90,13 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
   useEffect(() => {
     loadFileAreas();
   }, []);
+
+  // Load folders whenever file area changes
+  useEffect(() => {
+    if (selectedFileArea) {
+      loadFolders(selectedFileArea);
+    }
+  }, [selectedFileArea]);
 
   const loadFileAreas = async () => {
     setLoading(true);
@@ -46,6 +114,74 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadFolders = async (fileAreaId) => {
+    if (!fileAreaId) return;
+    setFoldersLoading(true);
+    setFolders([]);
+    setSelectedFolderIds(new Set());
+    setExpandedFolderIds(new Set());
+    try {
+      const data = projektId
+        ? await client.getFoldersByProjectId(projektId, fileAreaId)
+        : await client.getFolders(projektSifra, fileAreaId);
+      setFolders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      // Silently ignore — folder filtering just won't be available
+      setFolders([]);
+    } finally {
+      setFoldersLoading(false);
+    }
+  };
+
+  // Build a nested tree from a flat folder list
+  const buildFolderTree = (flatFolders) => {
+    const map = {};
+    flatFolders.forEach(f => {
+      map[f.folderId] = { ...f, children: [] };
+    });
+    const roots = [];
+    flatFolders.forEach(f => {
+      if (f.parentId && map[f.parentId]) {
+        map[f.parentId].children.push(map[f.folderId]);
+      } else {
+        roots.push(map[f.folderId]);
+      }
+    });
+    return roots;
+  };
+
+  // Collect all descendant IDs (including self)
+  const collectDescendants = (node, flatMap) => {
+    const ids = [node.folderId];
+    (node.children || []).forEach(child => {
+      ids.push(...collectDescendants(child, flatMap));
+    });
+    return ids;
+  };
+
+  const toggleFolderSelected = (node) => {
+    const ids = collectDescendants(node);
+    setSelectedFolderIds(prev => {
+      const next = new Set(prev);
+      const allSelected = ids.every(id => next.has(id));
+      if (allSelected) {
+        ids.forEach(id => next.delete(id));
+      } else {
+        ids.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const toggleFolderExpanded = (folderId) => {
+    setExpandedFolderIds(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
   };
 
   const handleDownloadAll = (checked) => {
@@ -85,12 +221,15 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
 
     const activeStartDate = enableDateFilter ? startDate : null;
     const activeEndDate = enableDateFilter ? endDate : null;
+    const activeFolderIds = (enableFolderFilter && selectedFolderIds.size > 0)
+      ? Array.from(selectedFolderIds)
+      : null;
 
     try {
       if (downloadAll || (downloadFiles && downloadForms && downloadTasks)) {
         // Download everything
         setDownloadStatus({ type: 'progress', message: 'Pripravljam celoten download...' });
-        
+
         const { blob, filename } = await client.downloadAll(
           projektSifra,
           selectedFileArea,
@@ -100,7 +239,8 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
           includeFormAttachments,
           activeStartDate,
           activeEndDate,
-          dateField
+          dateField,
+          activeFolderIds
         );
         
         client.downloadBlob(blob, filename);
@@ -134,7 +274,7 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
           
           // Use streaming download with progress
           const { blob, filename } = await client.downloadFilesWithProgress(
-            projektSifra, 
+            projektSifra,
             selectedFileArea,
             activeStartDate,
             activeEndDate,
@@ -142,29 +282,30 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
             (progressData) => {
               // Update progress info
               setProgressInfo(progressData);
-              
+
               if (progressData.stage === 'fetching') {
-                setDownloadStatus({ 
-                  type: 'progress', 
-                  message: `Pridobivam datoteke (stran ${progressData.page})...` 
+                setDownloadStatus({
+                  type: 'progress',
+                  message: `Pridobivam datoteke (stran ${progressData.page})...`
                 });
               } else if (progressData.stage === 'filtering') {
-                setDownloadStatus({ 
-                  type: 'progress', 
+                setDownloadStatus({
+                  type: 'progress',
                   message: progressData.message
                 });
               } else if (progressData.stage === 'downloading') {
-                setDownloadStatus({ 
-                  type: 'progress', 
-                  message: `Prenašam datoteke (${progressData.current}/${progressData.total})...` 
+                setDownloadStatus({
+                  type: 'progress',
+                  message: `Prenašam datoteke (${progressData.current}/${progressData.total})...`
                 });
               } else if (progressData.stage === 'zipping') {
-                setDownloadStatus({ 
-                  type: 'progress', 
-                  message: 'Ustvarjam ZIP arhiv...' 
+                setDownloadStatus({
+                  type: 'progress',
+                  message: 'Ustvarjam ZIP arhiv...'
                 });
               }
-            }
+            },
+            activeFolderIds
           );
           
           client.downloadBlob(blob, filename);
@@ -275,7 +416,100 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
           )}
         </div>
 
-        {/* NEW: Date Filter Section */}
+        {/* Folder Filter Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <FolderOpen className="w-6 h-6 text-slate-700" />
+            <h2 className="text-xl font-semibold text-slate-800">
+              Filtriraj po Mapah (Opcijsko)
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-100 transition">
+              <input
+                type="checkbox"
+                checked={enableFolderFilter}
+                onChange={(e) => {
+                  setEnableFolderFilter(e.target.checked);
+                  if (!e.target.checked) setSelectedFolderIds(new Set());
+                }}
+                className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex-1">
+                <div className="font-semibold text-slate-800">Omogoči filtriranje po mapah</div>
+                <div className="text-sm text-slate-600">
+                  Prenesi samo datoteke iz izbranih map
+                </div>
+              </div>
+            </label>
+
+            {enableFolderFilter && (
+              <div className="ml-4 p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
+                {foldersLoading && (
+                  <div className="flex items-center gap-2 text-slate-600 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Nalagam mape...
+                  </div>
+                )}
+
+                {!foldersLoading && folders.length === 0 && (
+                  <p className="text-sm text-slate-500">Ni map za prikaz.</p>
+                )}
+
+                {!foldersLoading && folders.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-700">
+                        Izbrane mape: <strong>{selectedFolderIds.size}</strong>
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFolderIds(new Set(folders.map(f => f.folderId)))}
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          Izberi vse
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFolderIds(new Set())}
+                          className="text-xs text-slate-500 hover:underline"
+                        >
+                          Počisti
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto border border-amber-200 rounded-lg bg-white">
+                      {buildFolderTree(folders).map(node => (
+                        <FolderNode
+                          key={node.folderId}
+                          node={node}
+                          selectedFolderIds={selectedFolderIds}
+                          expandedFolderIds={expandedFolderIds}
+                          onToggleSelect={toggleFolderSelected}
+                          onToggleExpand={toggleFolderExpanded}
+                          depth={0}
+                        />
+                      ))}
+                    </div>
+
+                    {selectedFolderIds.size === 0 && (
+                      <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-100 border border-amber-300 rounded-lg p-3">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        Nobena mapa ni izbrana — download bo vseboval VSE mape.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Date Filter Section */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <Filter className="w-6 h-6 text-slate-700" />
@@ -564,17 +798,18 @@ const DaluxExport = ({ projektSifra, projektId, projektName, onBack }) => {
             ) : (
               <>
                 <Download className="w-6 h-6" />
-                {enableDateFilter && (startDate || endDate) ? (
-                  startDate && endDate ? (
-                    `Začni Download (${startDate} - ${endDate})`
-                  ) : startDate ? (
-                    `Začni Download (od ${startDate})`
-                  ) : (
-                    `Začni Download (do ${endDate})`
-                  )
-                ) : (
-                  'Začni Download'
-                )}
+                {(() => {
+                  const parts = [];
+                  if (enableDateFilter && (startDate || endDate)) {
+                    if (startDate && endDate) parts.push(`${startDate} - ${endDate}`);
+                    else if (startDate) parts.push(`od ${startDate}`);
+                    else parts.push(`do ${endDate}`);
+                  }
+                  if (enableFolderFilter && selectedFolderIds.size > 0) {
+                    parts.push(`${selectedFolderIds.size} map`);
+                  }
+                  return parts.length > 0 ? `Začni Download (${parts.join(', ')})` : 'Začni Download';
+                })()}
               </>
             )}
           </button>

@@ -81,11 +81,11 @@ export default class DaluxApiClient {
 
   // ========== DOWNLOAD METHODS WITH DATE RANGE FILTERING ==========
 
-  async downloadFilesWithProgress(projectNumber, fileAreaId, startDate = null, endDate = null, dateField = "lastModified", onProgress = null) {
+  async downloadFilesWithProgress(projectNumber, fileAreaId, startDate = null, endDate = null, dateField = "lastModified", onProgress = null, folderIds = null) {
     const formData = new FormData();
     formData.append("project_number", projectNumber);
     formData.append("file_area_id", fileAreaId);
-    
+
     if (startDate) {
       formData.append("start_date", startDate);
     }
@@ -93,6 +93,9 @@ export default class DaluxApiClient {
       formData.append("end_date", endDate);
     }
     formData.append("date_field", dateField);
+    if (folderIds && folderIds.length > 0) {
+      formData.append("folder_ids", folderIds.join(","));
+    }
 
     const res = await this._fetch(`${this.baseUrl}/download/files/stream`, {
       method: "POST",
@@ -241,7 +244,8 @@ export default class DaluxApiClient {
     includeFormAttachments = false,
     startDate = null,
     endDate = null,
-    dateField = "lastModified"
+    dateField = "lastModified",
+    folderIds = null
   ) {
     const formData = new FormData();
     formData.append("project_number", projectNumber);
@@ -250,7 +254,7 @@ export default class DaluxApiClient {
     formData.append("include_forms", includeForms.toString());
     formData.append("include_tasks", includeTasks.toString());
     formData.append("include_form_attachments", includeFormAttachments.toString());
-    
+
     if (startDate) {
       formData.append("start_date", startDate);
     }
@@ -258,6 +262,9 @@ export default class DaluxApiClient {
       formData.append("end_date", endDate);
     }
     formData.append("date_field", dateField);
+    if (folderIds && folderIds.length > 0) {
+      formData.append("folder_ids", folderIds.join(","));
+    }
 
     const res = await this._fetch(`${this.baseUrl}/download/all`, {
       method: "POST",

@@ -50,10 +50,9 @@ const DaluxManager = ({ onToolSelect }) => {
     {
       id: 'export',
       name: 'Dalux Export',
-      description: 'Prenos datotek iz Dalux sistema (kmalu dostopno)',
+      description: 'Prenos datotek iz Dalux sistema',
       icon: Download,
-      color: 'green',
-      disabled: true
+      color: 'green'
     }
   ];
 
