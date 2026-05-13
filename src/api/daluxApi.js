@@ -341,7 +341,16 @@ export default class DaluxApiClient {
             fileName:    filename,
           }),
         });
-        if (!finalRes.ok) throw new Error(`Finalize error: ${await finalRes.text()}`);
+        if (!finalRes.ok) {
+          let msg = 'Napaka pri zaključku nalaganja';
+          try {
+            const body = await finalRes.json();
+            const dalux = typeof body.detail === 'string' ? JSON.parse(body.detail.replace(/^Dalux finalize error: /, '')) : null;
+            if (dalux?.message) msg = dalux.message;
+            else if (body.detail) msg = body.detail;
+          } catch { /* fallback to default msg */ }
+          throw new Error(msg);
+        }
 
         onFileStatus?.(filename, folder, 'done', attempt);
         return;
