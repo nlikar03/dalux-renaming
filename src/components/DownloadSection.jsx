@@ -9,9 +9,10 @@ import DaluxApiClient from '../api/daluxApi';
 
 function StatusIcon({ status }) {
   switch (status) {
-    case 'done':      return <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />;
-    case 'failed':    return <XCircle     className="w-4 h-4 text-red-500   flex-shrink-0" />;
-    case 'uploading': return <Loader2     className="w-4 h-4 text-blue-500  flex-shrink-0 animate-spin" />;
+    case 'done':      return <CheckCircle className="w-4 h-4 text-green-600  flex-shrink-0" />;
+    case 'failed':    return <XCircle     className="w-4 h-4 text-red-500    flex-shrink-0" />;
+    case 'duplicate': return <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0" />;
+    case 'uploading': return <Loader2     className="w-4 h-4 text-blue-500   flex-shrink-0 animate-spin" />;
     case 'retrying':  return <RefreshCw   className="w-4 h-4 text-orange-500 flex-shrink-0 animate-spin" />;
     default:          return <Clock       className="w-4 h-4 text-slate-400  flex-shrink-0" />;
   }
@@ -21,35 +22,30 @@ function UploadProgressList({ statuses }) {
   const entries = Object.values(statuses);
   if (entries.length === 0) return null;
 
-  const done    = entries.filter(s => s.status === 'done').length;
-  const failed  = entries.filter(s => s.status === 'failed').length;
-  const total   = entries.length;
-  const pct     = Math.round((done + failed) / total * 100);
+  const done       = entries.filter(s => s.status === 'done').length;
+  const failed     = entries.filter(s => s.status === 'failed').length;
+  const duplicates = entries.filter(s => s.status === 'duplicate').length;
+  const total      = entries.length;
+  const pct        = Math.round((done + failed + duplicates) / total * 100);
 
   return (
     <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden">
-      {/* Progress bar */}
       <div className="h-2 bg-slate-100">
-        <div
-          className="h-2 bg-blue-500 transition-all duration-300"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-2 bg-blue-500 transition-all duration-300" style={{ width: `${pct}%` }} />
       </div>
-
-      {/* Summary line */}
       <div className="px-3 py-2 bg-slate-50 border-b text-xs text-slate-600 flex gap-4">
         <span>Skupaj: {total}</span>
         <span className="text-green-700">✓ {done}</span>
+        {duplicates > 0 && <span className="text-orange-600">⚠ {duplicates} že obstaja</span>}
         {failed > 0 && <span className="text-red-600">✗ {failed}</span>}
         <span className="text-slate-400 ml-auto">{pct}%</span>
       </div>
-
-      {/* Per-file rows */}
       <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
         {entries.map((s, i) => (
           <div key={i} className={`flex items-start gap-2 px-3 py-2 text-sm ${
-            s.status === 'done'   ? 'bg-green-50' :
-            s.status === 'failed' ? 'bg-red-50'   : 'bg-white'
+            s.status === 'done'      ? 'bg-green-50'  :
+            s.status === 'duplicate' ? 'bg-orange-50' :
+            s.status === 'failed'    ? 'bg-red-50'    : 'bg-white'
           }`}>
             <StatusIcon status={s.status} />
             <div className="flex-1 min-w-0">
@@ -57,6 +53,9 @@ function UploadProgressList({ statuses }) {
               <p className="text-xs text-slate-400 truncate">{s.folder}</p>
               {s.status === 'retrying' && (
                 <p className="text-xs text-orange-600 mt-0.5">Poskus {s.attempt}/3…</p>
+              )}
+              {s.status === 'duplicate' && (
+                <p className="text-xs text-orange-600 mt-0.5">Datoteka že obstaja v Dalux</p>
               )}
               {s.status === 'failed' && s.error && (
                 <p className="text-xs text-red-600 mt-0.5 break-words">{s.error}</p>
@@ -76,26 +75,34 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
   const [uploadResults, setUploadResults] = useState(null);
   const [fileStatuses, setFileStatuses] = useState({});
   const [duplicatesAcknowledged, setDuplicatesAcknowledged] = useState(false);
+  const [filesDict, setFilesDict] = useState({});
 
   const completeFiles   = files.filter(f => isFileComplete(f));
   const incompleteFiles = files.filter(f => !isFileComplete(f));
   const duplicates      = findDuplicateFilenames(completeFiles, projektSifra);
   const hasDuplicates   = duplicates.length > 0;
 
-  const handleUploadToDalux = async () => {
-    setUploading(true);
-    setUploadResults(null);
-
-    // Pre-populate all files as pending so the list appears immediately
-    const initialStatuses = {};
-    const filesDict = {};
+  const _buildFilesDict = () => {
+    const dict = {};
     completeFiles.forEach(file => {
       const filename = generateNewFilename(file, projektSifra);
       const folder   = file.target_subfolder;
-      const key      = `${folder}/${filename}`;
-      initialStatuses[key] = { file: filename, folder, status: 'pending', attempt: 0 };
-      if (!filesDict[folder]) filesDict[folder] = [];
-      filesDict[folder].push([filename, file.content]);
+      if (!dict[folder]) dict[folder] = [];
+      dict[folder].push([filename, file.content]);
+    });
+    return dict;
+  };
+
+  const _runUpload = async (dict, replaceIfExists = false) => {
+    setUploading(true);
+    setUploadResults(null);
+
+    const initialStatuses = {};
+    Object.entries(dict).forEach(([folder, filesList]) => {
+      filesList.forEach(([filename]) => {
+        const key = `${folder}/${filename}`;
+        initialStatuses[key] = { file: filename, folder, status: 'pending', attempt: 0 };
+      });
     });
     setFileStatuses(initialStatuses);
 
@@ -106,13 +113,23 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
 
     try {
       const client  = new DaluxApiClient();
-      const results = await client.bulkUploadFromStructure(projektId || projektSifra, filesDict, onFileStatus);
+      const results = await client.bulkUploadFromStructure(projektId || projektSifra, dict, onFileStatus, replaceIfExists);
       setUploadResults(results);
     } catch (error) {
-      setUploadResults({ success: 0, failed: completeFiles.length, details: [], error: error.message });
+      setUploadResults({ success: 0, failed: completeFiles.length, duplicates: 0, details: [], error: error.message });
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleUploadToDalux = async () => {
+    const dict = _buildFilesDict();
+    setFilesDict(dict);
+    await _runUpload(dict, false);
+  };
+
+  const handleReplaceAll = async () => {
+    await _runUpload(filesDict, true);
   };
 
   if (files.length === 0) {
@@ -259,7 +276,7 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
 
               {/* Final summary */}
               {uploadResults && !uploading && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-3">
                   {uploadResults.error ? (
                     <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                       <p className="text-red-800 font-medium">Napaka pri nalaganju:</p>
@@ -273,7 +290,7 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
                       {uploadResults.failed > 0 && (
                         <p className="text-red-700 mt-1">Neuspešnih: {uploadResults.failed}</p>
                       )}
-                      {uploadResults.failed === 0 && (
+                      {uploadResults.failed === 0 && uploadResults.duplicates === 0 && (
                         <button
                           onClick={onClearFiles}
                           className="mt-3 flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-lg transition"
@@ -282,6 +299,30 @@ const DownloadSection = ({ files, projektSifra, projektId, daluxConnected, onCle
                           Naloži nove datoteke
                         </button>
                       )}
+                    </div>
+                  )}
+
+                  {/* Replace duplicates prompt */}
+                  {uploadResults.duplicates > 0 && (
+                    <div className="p-4 bg-orange-50 border border-orange-300 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-orange-800 font-medium">
+                            {uploadResults.duplicates} datoteka že obstaja v Dalux
+                          </p>
+                          <p className="text-sm text-orange-700 mt-1">
+                            Ali želiš posodobiti obstoječe datoteke z novo verzijo?
+                          </p>
+                          <button
+                            onClick={handleReplaceAll}
+                            className="mt-3 flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Zamenjaj {uploadResults.duplicates} datoteko/datotek
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

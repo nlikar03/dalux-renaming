@@ -301,9 +301,21 @@ export default class DaluxApiClient {
     return res.json();
   }
 
-  // Single-file upload with up to maxAttempts retries and optional status callback.
-  // onFileStatus(filename, folder, status, attempt) — status: 'uploading'|'retrying'|'done'
-  async _uploadSingleFile(projectId, fileAreaId, folder, filename, content, onFileStatus, maxAttempts = 3) {
+  async _parseFinalizError(res) {
+    let msg = 'Napaka pri zaključku nalaganja';
+    let isDuplicate = false;
+    try {
+      const body = await res.json();
+      const dalux = typeof body.detail === 'string' ? JSON.parse(body.detail.replace(/^Dalux finalize error: /, '')) : null;
+      if (dalux?.message) { msg = dalux.message; isDuplicate = dalux.errorCode === 'E40001'; }
+      else if (body.detail) msg = body.detail;
+    } catch { /* fallback */ }
+    return { msg, isDuplicate };
+  }
+
+  // Single-file upload with retries. replaceIfExists=true will replace on duplicate instead of failing.
+  // onFileStatus(filename, folder, status, attempt, error) — status: 'uploading'|'retrying'|'done'|'duplicate'
+  async _uploadSingleFile(projectId, fileAreaId, folder, filename, content, onFileStatus, maxAttempts = 3, replaceIfExists = false) {
     let lastError;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       onFileStatus?.(filename, folder, attempt > 1 ? 'retrying' : 'uploading', attempt);
@@ -334,21 +346,22 @@ export default class DaluxApiClient {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            project_id:  slot.project_id,
+            project_id:       slot.project_id,
             fileAreaId,
-            folder_id:   slot.folder_id,
-            upload_guid: slot.upload_guid,
-            fileName:    filename,
+            folder_id:        slot.folder_id,
+            upload_guid:      slot.upload_guid,
+            fileName:         filename,
+            replace_if_exists: replaceIfExists,
           }),
         });
         if (!finalRes.ok) {
-          let msg = 'Napaka pri zaključku nalaganja';
-          try {
-            const body = await finalRes.json();
-            const dalux = typeof body.detail === 'string' ? JSON.parse(body.detail.replace(/^Dalux finalize error: /, '')) : null;
-            if (dalux?.message) msg = dalux.message;
-            else if (body.detail) msg = body.detail;
-          } catch { /* fallback to default msg */ }
+          const { msg, isDuplicate } = await this._parseFinalizError(finalRes);
+          // Duplicate → no point retrying, throw immediately with a flag
+          if (isDuplicate) {
+            const err = new Error(msg);
+            err.isDuplicate = true;
+            throw err;
+          }
           throw new Error(msg);
         }
 
@@ -356,15 +369,17 @@ export default class DaluxApiClient {
         return;
       } catch (err) {
         lastError = err;
+        // Don't retry on duplicate — it will never succeed
+        if (err.isDuplicate) break;
         if (attempt < maxAttempts) {
-          await new Promise(r => setTimeout(r, 800 * attempt)); // 800ms, 1600ms
+          await new Promise(r => setTimeout(r, 800 * attempt));
         }
       }
     }
     throw lastError;
   }
 
-  async bulkUploadFromStructure(projectId, filesDict, onFileStatus = null) {
+  async bulkUploadFromStructure(projectId, filesDict, onFileStatus = null, replaceIfExists = false) {
     if (!filesDict || Object.keys(filesDict).length === 0) {
       throw new Error("No files to upload");
     }
@@ -375,20 +390,26 @@ export default class DaluxApiClient {
     }
     const fileAreaId = fileAreas[0].data.fileAreaId;
 
-    const allResults = { success: 0, failed: 0, details: [] };
+    const allResults = { success: 0, failed: 0, duplicates: 0, details: [] };
 
     for (const [folder, filesList] of Object.entries(filesDict)) {
       if (!filesList || filesList.length === 0) continue;
 
       for (const [filename, content] of filesList) {
         try {
-          await this._uploadSingleFile(projectId, fileAreaId, folder, filename, content, onFileStatus);
+          await this._uploadSingleFile(projectId, fileAreaId, folder, filename, content, onFileStatus, 3, replaceIfExists);
           allResults.success++;
           allResults.details.push({ file: filename, folder, status: "success" });
         } catch (error) {
-          onFileStatus?.(filename, folder, 'failed', null, error.message);
-          allResults.failed++;
-          allResults.details.push({ file: filename, folder, status: "failed", error: error.message });
+          if (error.isDuplicate) {
+            onFileStatus?.(filename, folder, 'duplicate', null, error.message);
+            allResults.duplicates++;
+            allResults.details.push({ file: filename, folder, status: "duplicate", error: error.message });
+          } else {
+            onFileStatus?.(filename, folder, 'failed', null, error.message);
+            allResults.failed++;
+            allResults.details.push({ file: filename, folder, status: "failed", error: error.message });
+          }
         }
       }
     }
