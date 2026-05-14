@@ -65,7 +65,12 @@ const DaluxManager = ({ onToolSelect }) => {
         </div>
 
         <div className="bg-white rounded-b-xl shadow-xl p-8">
-          {loading && <p className="text-slate-600">Nalagam projekte...</p>}
+          {loading && (
+            <div>
+              <p className="text-slate-600">Nalagam projekte...</p>
+              <p className="text-slate-400 text-sm mt-1">Prvi zagon lahko traja do 2 minuti, ker se strežnik še zaganja.</p>
+            </div>
+          )}
 
           {error && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
