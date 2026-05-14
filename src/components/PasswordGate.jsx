@@ -72,6 +72,12 @@ export default function PasswordGate({ onAuthenticated }) {
               </button>
             </div>
 
+            {loading && (
+              <p className="text-slate-400 text-xs text-center">
+                Prvi zagon lahko traja do 2 minuti, ker se strežnik še zaganja.
+              </p>
+            )}
+
             {error && (
               <p className="text-red-600 text-sm text-center">{error}</p>
             )}
@@ -81,7 +87,7 @@ export default function PasswordGate({ onAuthenticated }) {
               disabled={loading || !input.trim()}
               className="w-full bg-slate-700 hover:bg-slate-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors text-sm"
             >
-              {loading ? 'Preverjanje...' : 'Vstopi'}
+                {loading ? 'Preverjanje...' : 'Vstopi'}
             </button>
           </form>
         </div>
