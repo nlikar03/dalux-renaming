@@ -63,7 +63,7 @@ const FileUploader = ({ onFilesAdded }) => {
 
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-700">
-          💡 Izbereš lahko več datotek hkrati
+          Izbereš lahko več datotek hkrati
         </p>
       </div>
     </div>

@@ -33,7 +33,7 @@ export default function PasswordGate({ onAuthenticated }) {
         setError(`Napaka strežnika (${res.status}). Poskusite znova.`);
       }
     } catch {
-      setError('Strežnik ni dosegljiv. Preverite povezavo.');
+      setError('Strežnik se zaganja, počakajte trenutek in poskusite znova.');
     } finally {
       setLoading(false);
     }
